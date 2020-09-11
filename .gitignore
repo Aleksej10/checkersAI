@@ -1,0 +1,10 @@
+backup/
+build/
+clean_model/
+trained_model/
+/Makefile
+/play.cpp
+/test_clean.cpp
+/train.cpp
+/train_vs_random.cpp
+
