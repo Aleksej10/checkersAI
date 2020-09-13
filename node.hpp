@@ -59,7 +59,9 @@ public:
     void monte(unsigned);
 
     static void playMove(Node *&, std::string);
-    static std::string pick_n_play(Node *&, unsigned);
+    static void playMove(Node *&, Move);
+    /* static std::string pick_n_play(Node *&, unsigned); */
+    static Move pick_n_play(Node *&, unsigned);
 
     static void self_play(Node *&, unsigned);
     static void self_vs_random(Node *&, unsigned, int);

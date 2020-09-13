@@ -33,6 +33,9 @@ struct Move{
     uint64_t toSquare;
     uint64_t captureSquare;
 
+    Move(){
+    }
+
     Move(mType m, uint64_t f, uint64_t t){
         type = m;
         fromSquare = f;
@@ -49,6 +52,13 @@ struct Move{
 
     std::string toString(){
         return i2s[fromSquare] + "-" + i2s[toSquare];
+    }
+
+    bool operator==(const Move & m) const{
+        return  (m.type == type) &&
+                (m.fromSquare == fromSquare) &&
+                (m.toSquare == toSquare) &&
+                (m.captureSquare == captureSquare);
     }
 };
 

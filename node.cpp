@@ -216,20 +216,46 @@ void Node::playMove(Node *& n, std::string m){
     }
     n = n->get_son(index);
 }
-    
-std::string Node::pick_n_play(Node *& n, unsigned lvl){
-    n->monte(lvl);
-    uint8_t index = n->argmax();
+
+void Node::playMove(Node *& n, Move m){
+    n->expand();
+
     std::vector<Move> mvs = *(n->get_moves());
-    Move m = mvs[index];
-    std::string fS = i2s[m.fromSquare];
-    std::string tS = i2s[m.toSquare];
-    if(n->get_side() == 1){
-        fS = i2s[reverse(s2i[fS])];
-        tS = i2s[reverse(s2i[tS])];
+
+    int index = -1;
+    for(unsigned p=0; p<mvs.size(); p++){
+        if(m == mvs[p]){
+            index = p;
+            break;
+        }
+    }
+    if(index == -1){
+        std::cout << "move not found\n";
+        return;
     }
     n = n->get_son(index);
-    return fS + tS;
+}
+    
+/* std::string Node::pick_n_play(Node *& n, unsigned lvl){ */
+/*     n->monte(lvl); */
+/*     uint8_t index = n->argmax(); */
+/*     std::vector<Move> mvs = *(n->get_moves()); */
+/*     Move m = mvs[index]; */
+/*     std::string fS = i2s[m.fromSquare]; */
+/*     std::string tS = i2s[m.toSquare]; */
+/*     if(n->get_side() == 1){ */
+/*         fS = i2s[reverse(s2i[fS])]; */
+/*         tS = i2s[reverse(s2i[tS])]; */
+/*     } */
+/*     n = n->get_son(index); */
+/*     return fS + tS; */
+/* } */
+
+Move Node::pick_n_play(Node *& n, unsigned lvl){
+    n->monte(lvl);
+    uint8_t index = n->argmax();
+    n = n->get_son(index);
+    return (*(n->get_moves()))[index];
 }
 
 void Node::human_play(Node *& n, unsigned i, int s){
