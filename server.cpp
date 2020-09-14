@@ -1,3 +1,5 @@
+#include <bits/stdint-uintn.h>
+#include <cstdlib>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 #include "pos.hpp"
@@ -6,7 +8,6 @@
 #include <iostream>
 #include <map>
 #include <string>
-#include <sstream>
 #include <vector>
 #include <future>
 #include <chrono>
@@ -20,14 +21,6 @@ using json = nlohmann::json;
 typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
 
 
-/* std::vector<std::string> split(const std::string &s, char delim) { */
-/*     std::vector<std::string> result; */
-/*     std::stringstream ss(s); */
-/*     std::string item; */
-/*     while (getline(ss, item, delim)) result.push_back(item); */
-/*     return result; */
-/* } */
-
 json move_to_json(Move m){
     const json j = {{"_captureSquare" , m.captureSquare},
                     {"_fromSquare", m.fromSquare},
@@ -37,10 +30,25 @@ json move_to_json(Move m){
 }
 
 Move json_to_move(json j){
-    return Move(j["_type"].get<mType>(),
-                j["_fromSquare"].get<uint64_t>(),
-                j["_toSquare"].get<uint64_t>(),
-                j["_captureSquare"].get<uint64_t>());
+    mType type;
+    int t = j["_type"].get<int>();
+    if(t == 0){
+        type = mType::silent;
+    }
+    else if(t == 1){
+        type = mType::capture;
+    }
+    else if(t == 2){
+        type = mType::promotion;
+    }
+    else{
+        std::cout << "type not recognized\n";
+        exit(EXIT_FAILURE);
+    }
+    return Move(type,
+                std::stoull(j["_fromSquare"].get<std::string>()),
+                std::stoull(j["_captureSquare"].get<std::string>()),
+                std::stoull(j["_toSquare"].get<std::string>()));
 }
 
 std::string userID;
@@ -53,25 +61,18 @@ private:
     Node* node_;
 
 public:
-    ~Game(){}
+    ~Game(){ Node::delete_tree(node_); }
+
     Game(std::string id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
 
-    std::string get_id(){ return id_; }
-    int get_pside(){ return playerSide_; }
-    unsigned get_lvl(){ return lvl_; }
-    Node * get_node(){ return node_; }
-
     std::vector<Move> playMove(Move m){
-        if(node_->get_side() != playerSide_){//TODO: premove?
-            return std::vector<Move> {Node::pick_n_play(node_, lvl_)};
-            /* const json j = {"move", id_, userID, Node::pick_n_play(node_, lvl_)}; */
-            /* /1* std::cout << "ai " << id_ << " " << Node::pick_n_play(node_, lvl_) << '\n'; *1/ */
-            /* return ; */
+        if(node_->get_side() != playerSide_){//TODO: premove? currently used to play first move for AI
+            return std::vector<Move> { Node::pick_n_play(node_, lvl_) };
         }
         else{
             Node::playMove(node_, m); 
             if(node_->get_side() == playerSide_){
-                return {};
+                return std::vector<Move> {};
             }
             else{
                 std::vector<Move> moves;
@@ -82,8 +83,6 @@ public:
             }
         }
     }
-
-    void show(){ node_->show(); }
 };
 
 
@@ -92,10 +91,10 @@ public:
     std::map<std::string, Game*> games_;
 
     ~Server(){
-        for(auto [_, g]: games_){
+        for(auto [_, g]: games_)
             delete(g);
-        }
     }
+
     Server(){
         Model m = Model();
         m.load();
@@ -107,79 +106,74 @@ public:
         if(s == 1){
             Move token;
             return games_[id]->playMove(token);
-            /* auto fut = std::async(std::launch::async, [this, id]{return games_[id]->playMove("");}); */
-            /* return fut.get(); */
         }
         else{
-            return {};
+            return std::vector<Move> {};
         }
     }
-
-    /* void start(){ */
-    /*     while(true){ */
-    /*         else if(v[0] == "move"){ //['move', gameID, move, time] */
-    /*             std::string mv = v[2]; */
-    /*             unsigned millis = std::stoi(v[3]); */
-    /*             auto t0 = std::chrono::high_resolution_clock::now(); */
-    /*             auto fut = std::async(std::launch::async, [this, mv, gameID]{return games_[gameID]->playMove(mv);}); */
-    /*             auto t1 = std::chrono::high_resolution_clock::now(); */
-    /*             auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() + millis; */
-    /*             auto ret = fut.get(); */
-    /*         } */
-    /*         else if(v[0] == "end"){ */
-    /*             //TODO obsolete */
-    /*         } */
-    /*         else if(v[0] == "show"){ */
-    /*             games_[gameID]->show(); */
-    /*         } */
-    /* } */
 };
 
 Server server;
 
 void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message) {
     json msg = json::parse(message->get_payload());
+    std::string msg0 = msg[0].get<std::string>();
+
+    std::cout << msg.dump(2) << std::endl;
 
     websocketpp::lib::error_code ec;
 
-    if(msg[0].get<std::string>() == "handshake"){
+    if(msg0 == "handshake"){  // ['handshake', userID], 
         userID = msg[1].get<std::string>();
         json ret = {"signin", userID, "ai", "e2e5a999af141629ba7fdd8d6dd50d59475d20ebbd763c70c39eecc648f4d1e1"};
         c->send(hdl, ret.dump(), message->get_opcode(), ec);
     }
-    else if(msg[0].get<std::string>() == "signed"){
+    else if(msg0 == "signed"){ // ['signed', status, name, elo],
         if(msg[1].get<std::string>() != "success"){
             std::cout << "couldn't sign in" << '\n';
             exit(EXIT_FAILURE);
         }
     }
-    else if(msg[0].get<std::string>() == "game"){
+    else if(msg0 == "game"){ // ['game', gameID, side, level, start_time],
         std::string gameID = msg[1].get<std::string>();
         int side = msg[2].get<int>();
         unsigned level = msg[3].get<unsigned>();
-        auto fut = std::async(std::launch::async, [gameID, side, level]{return server.addGame(gameID, side, level);});
-        auto moves = fut.get();
-        if(moves.size() == 1){
-            json ret = {"move", gameID, userID, move_to_json(moves[0]), 3 * 60 * 100};
-            c->send(hdl, ret.dump(), message->get_opcode(), ec);
-        }
-    }
-    else if(msg[0].get<std::string>() == "move"){
-        std::string gameID = msg[1].get<std::string>();
-        // msg[2] opponent id, obsolete
-        auto mv = msg[3]; //TODO unpack move
-        Move move = json_to_move(mv);
         unsigned millis = msg[4].get<unsigned>();
 
         auto t0 = std::chrono::high_resolution_clock::now();
-        auto fut = std::async(std::launch::async, [move, gameID]{return server.games_[gameID]->playMove(move);});
+            auto fut = std::async(std::launch::async, [gameID, side, level]{return server.addGame(gameID, side, level);});
+            std::vector<Move> moves = fut.get();
         auto t1 = std::chrono::high_resolution_clock::now();
-        auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() + millis;
-        auto moves = fut.get();
+        auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
+
+        if(moves.size() == 1){
+            json ret = {"move", gameID, userID, move_to_json(moves[0]), t};
+            c->send(hdl, ret.dump(), message->get_opcode(), ec);
+        }
+    }
+    else if(msg0 == "move"){ // ['move', gameID, move, time]
+        std::string gameID = msg[1].get<std::string>();
+        Move move = json_to_move(msg[2]);
+        unsigned millis = msg[3].get<unsigned>();
+
+        auto t0 = std::chrono::high_resolution_clock::now();
+            auto fut = std::async(std::launch::async, [move, gameID]{return server.games_[gameID]->playMove(move);});
+            std::vector<Move> moves = fut.get();
+        auto t1 = std::chrono::high_resolution_clock::now();
+        auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
+
         for(auto m: moves){
             json ret = {"move", gameID, userID, move_to_json(m), t};
             c->send(hdl, ret.dump(), message->get_opcode(), ec);
         }
+    }
+    else if(msg0 == "end"){ // ['end', gameID, score, rating_shift]
+        std::string gameID = msg[1].get<std::string>();
+
+        std::cout << "end " << gameID << std::endl;
+
+        //TODO train
+        delete server.games_[gameID];
     }
     else{
         std::cout << msg.dump(2) << '\n';
@@ -215,9 +209,5 @@ int main(int argc, char *argv[]) {
         std::cout << e.what() << std::endl;
     }
 
-    /* server.start(); */
-
     return 0;
 }
-
-

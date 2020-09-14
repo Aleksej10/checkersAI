@@ -2,7 +2,15 @@
 
 Node::~Node(){
     for (auto s : sons_)
-        delete(s);
+        delete s;
+    delete father_;
+}
+
+void Node::delete_tree(Node *& leaf){
+    Node * tmp = leaf;
+    while(tmp->get_father() != nullptr)
+        tmp = tmp->get_father();
+    delete tmp;
 }
 
 Node::Node(){
@@ -22,7 +30,7 @@ Node::Node(){
     }
 }
 
-Node::Node(Node* father, Pos pos, Move m){
+Node::Node(Node * father, Pos pos, Move m){
     father_ = father;
     pos_ = pos; pos_.playMove(m);
     side_ = pos_.getSide();

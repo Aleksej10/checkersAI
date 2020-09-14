@@ -31,7 +31,8 @@ public:
 
    ~Node();
     Node();
-    Node(Node*, Pos, Move);
+    Node(Node *, Pos, Move);
+    static void delete_tree(Node *&);
     /* void copy(Node*); */
 
     void show();
