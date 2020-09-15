@@ -14,7 +14,7 @@ This repository integrates with [Checkers web site](github.com/Aleksej10/checker
 
 AI uses CNN for estimating evaluation of a position.  
 Search algorithm is a modification of Monte Carlo Tree Search.  
-Trained model can be found on [Checkers web site](github.com/Aleksej10),  
+Trained model can be found on [Checkers web site](github.com/Aleksej10/checkers),  
 as well as the binary (target: `x86_64-pc-linux-gnu`).
 
 ## About
