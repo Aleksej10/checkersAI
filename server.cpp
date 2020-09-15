@@ -86,7 +86,7 @@ public:
             }
             else{
                 std::vector<Move> moves;
-                while(node_->get_side() != playerSide_){
+                while((node_->get_side() != playerSide_) && (!node_->over())){
                     moves.push_back(Node::pick_n_play(node_, lvl_));
                 }
                 return moves;
