@@ -32,14 +32,10 @@ json move_to_json(Move m){
         std::cout << "type " << t << " not recognized\n";
         exit(EXIT_FAILURE);
     }
-    const json j = {{"_captureSquare" , m.captureSquare},
-                    {"_fromSquare", m.fromSquare},
-                    {"_toSquare", m.toSquare},
-                    {"_type", type} };
-
-    std::cout << "move for sending: " << m.toString() << "\n";
-    std::cout << j.dump(2) << std::endl;
-    return j;
+    return json {{"_captureSquare" , m.captureSquare},
+                {"_fromSquare", m.fromSquare},
+                {"_toSquare", m.toSquare},
+                {"_type", type} };
 }
 
 Move json_to_move(json j){
@@ -53,14 +49,11 @@ Move json_to_move(json j){
         std::cout << "type " << t << " not recognized\n";
         exit(EXIT_FAILURE);
     }
-    Move m = Move(type,
+    return Move(type,
                 std::stoull(j["_fromSquare"].get<std::string>()),
                 std::stoull(j["_captureSquare"].get<std::string>()),
                 std::stoull(j["_toSquare"].get<std::string>()));
 
-    std::cout << "got move: " << m.toString() << std::endl;
-    std::cout << j.dump(2) << std::endl;
-    return m;
 }
 
 std::string userID;
@@ -70,10 +63,14 @@ private:
     std::string id_; 
     int playerSide_; 
     unsigned lvl_;
-    Node* node_;
 
 public:
-    ~Game(){ Node::delete_tree(node_); }
+    Node* node_;
+    ~Game(){ 
+        std::cout << "deconstructing game " << id_ << std::endl;
+        delete node_;
+        std::cout << "game " << id_ << " deconstructed" << std::endl;
+    }
 
     Game(std::string id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
     int get_pSide(){ return playerSide_; }
@@ -104,16 +101,18 @@ public:
 class Server{
 public:
     std::map<std::string, Game*> games_;
+    Model* m;
 
     ~Server(){
         for(auto [_, g]: games_)
-            delete(g);
+            delete g;
+        std::cout << "server deconstructed" << std::endl;
     }
 
     Server(){
-        Model m = Model();
-        m.load();
-        Node::install_net(m.get_net());
+        m = new Model();
+        m->load();
+        Node::install_net(m->get_net());
     }
 
     std::vector<Move> addGame(std::string id, int s, unsigned lvl){
@@ -168,7 +167,6 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
     }
     else if(msg0 == "move"){ // ['move', gameID, move, time]
         std::string gameID = msg[1].get<std::string>();
-        int side = server.games_[gameID]->get_pSide();
         Move move = json_to_move(msg[2]);
         unsigned millis = msg[3].get<unsigned>();
 
@@ -178,8 +176,6 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
         auto t1 = std::chrono::high_resolution_clock::now();
         auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
 
-        server.games_[gameID]->show();
-
         for(auto m: moves){
             json ret = {"move", gameID, userID, move_to_json(m), t};
             c->send(hdl, ret.dump(), message->get_opcode(), ec);
@@ -187,14 +183,19 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
     }
     else if(msg0 == "end"){ // ['end', gameID, score, rating_shift]
         std::string gameID = msg[1].get<std::string>();
-
         std::cout << "end " << gameID << std::endl;
 
-        //TODO train
-        delete server.games_[gameID];
+        std::pair<torch::Tensor, torch::Tensor> p = Node::get_training_set(server.games_[gameID]->node_);
+        torch::Tensor xs = p.first;
+        torch::Tensor ys = p.second;
+
+        server.games_.erase(gameID);
+
+        std::cout << "loss: " << server.m->train(xs, ys) << '\n';
+        server.m->save();
     }
     else{
-        std::cout << "unrecognized message\n";
+        std::cout << "unrecognized message:\n";
         std::cout << msg.dump(2) << '\n';
     }
 

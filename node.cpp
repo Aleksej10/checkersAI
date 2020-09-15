@@ -219,7 +219,7 @@ void Node::playMove(Node *& n, std::string m){
         }
     }
     if(index == -1){
-        std::cout << "move not found\n";
+        std::cout << "move " << m << " not found\n";
         return;
     }
     n = n->get_son(index);
@@ -238,7 +238,7 @@ void Node::playMove(Node *& n, Move m){
         }
     }
     if(index == -1){
-        std::cout << "move not found\n";
+        std::cout << "move " << m.toString() << " not found\n";
         return;
     }
     n = n->get_son(index);
