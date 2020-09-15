@@ -262,8 +262,9 @@ void Node::playMove(Node *& n, Move m){
 Move Node::pick_n_play(Node *& n, unsigned lvl){
     n->monte(lvl);
     uint8_t index = n->argmax();
+    std::vector<Move> mvs = *(n->get_moves());
     n = n->get_son(index);
-    return (*(n->get_moves()))[index];
+    return mvs[index];
 }
 
 void Node::human_play(Node *& n, unsigned i, int s){

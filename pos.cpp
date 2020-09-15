@@ -133,6 +133,23 @@ uint64_t reverse(uint64_t n){
     return n;
 }
 
+Move Move::reverse(){
+    return Move(type 
+                ,::reverse(fromSquare)
+                ,::reverse(captureSquare)
+                ,::reverse(toSquare));
+}
+
+Move Move::reverse(int pSide){
+    std::cout << "pSide is: " << pSide << std::endl;
+    if(pSide == 1){
+        std::cout << "reverseing\n";
+        return this->reverse();
+    }
+    std::cout << "not reversing\n";
+    return *this;
+}
+
 void printMoves(const std::vector<Move>& moves){
     for(long unsigned i=0; i<moves.size(); i++){
         std::cout << (i+1) << ". "

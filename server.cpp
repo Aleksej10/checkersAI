@@ -22,33 +22,45 @@ typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
 
 
 json move_to_json(Move m){
+    int type;
+    mType t = m.type;
+
+    if(t == mType::silent) type = 0;
+    else if(t == mType::capture) type = 1;
+    else if(t == mType::promotion) type = 2;
+    else{
+        std::cout << "type " << t << " not recognized\n";
+        exit(EXIT_FAILURE);
+    }
     const json j = {{"_captureSquare" , m.captureSquare},
                     {"_fromSquare", m.fromSquare},
                     {"_toSquare", m.toSquare},
-                    {"_type", m.type} };
+                    {"_type", type} };
+
+    std::cout << "move for sending: " << m.toString() << "\n";
+    std::cout << j.dump(2) << std::endl;
     return j;
 }
 
 Move json_to_move(json j){
     mType type;
     int t = j["_type"].get<int>();
-    if(t == 0){
-        type = mType::silent;
-    }
-    else if(t == 1){
-        type = mType::capture;
-    }
-    else if(t == 2){
-        type = mType::promotion;
-    }
+
+    if(t == 0) type = mType::silent;
+    else if(t == 1) type = mType::capture;
+    else if(t == 2) type = mType::promotion;
     else{
-        std::cout << "type not recognized\n";
+        std::cout << "type " << t << " not recognized\n";
         exit(EXIT_FAILURE);
     }
-    return Move(type,
+    Move m = Move(type,
                 std::stoull(j["_fromSquare"].get<std::string>()),
                 std::stoull(j["_captureSquare"].get<std::string>()),
                 std::stoull(j["_toSquare"].get<std::string>()));
+
+    std::cout << "got move: " << m.toString() << std::endl;
+    std::cout << j.dump(2) << std::endl;
+    return m;
 }
 
 std::string userID;
@@ -64,6 +76,7 @@ public:
     ~Game(){ Node::delete_tree(node_); }
 
     Game(std::string id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
+    int get_pSide(){ return playerSide_; }
 
     std::vector<Move> playMove(Move m){
         if(node_->get_side() != playerSide_){//TODO: premove? currently used to play first move for AI
@@ -83,6 +96,8 @@ public:
             }
         }
     }
+
+    void show(){ node_->show(); }
 };
 
 
@@ -119,8 +134,6 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
     json msg = json::parse(message->get_payload());
     std::string msg0 = msg[0].get<std::string>();
 
-    std::cout << msg.dump(2) << std::endl;
-
     websocketpp::lib::error_code ec;
 
     if(msg0 == "handshake"){  // ['handshake', userID], 
@@ -146,6 +159,8 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
         auto t1 = std::chrono::high_resolution_clock::now();
         auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
 
+        server.games_[gameID]->show();
+
         if(moves.size() == 1){
             json ret = {"move", gameID, userID, move_to_json(moves[0]), t};
             c->send(hdl, ret.dump(), message->get_opcode(), ec);
@@ -153,6 +168,7 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
     }
     else if(msg0 == "move"){ // ['move', gameID, move, time]
         std::string gameID = msg[1].get<std::string>();
+        int side = server.games_[gameID]->get_pSide();
         Move move = json_to_move(msg[2]);
         unsigned millis = msg[3].get<unsigned>();
 
@@ -161,6 +177,8 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
             std::vector<Move> moves = fut.get();
         auto t1 = std::chrono::high_resolution_clock::now();
         auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
+
+        server.games_[gameID]->show();
 
         for(auto m: moves){
             json ret = {"move", gameID, userID, move_to_json(m), t};
@@ -176,6 +194,7 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
         delete server.games_[gameID];
     }
     else{
+        std::cout << "unrecognized message\n";
         std::cout << msg.dump(2) << '\n';
     }
 

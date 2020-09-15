@@ -60,6 +60,9 @@ struct Move{
                 (m.toSquare == toSquare) &&
                 (m.captureSquare == captureSquare);
     }
+
+    Move reverse();
+    Move reverse(int);
 };
 
 class Pos {
