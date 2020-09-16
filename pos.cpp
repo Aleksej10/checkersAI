@@ -134,49 +134,7 @@ uint64_t reverse(uint64_t n){
 }
 
 Move Move::reverse(){
-    return Move(type 
-                ,::reverse(fromSquare)
-                ,::reverse(captureSquare)
-                ,::reverse(toSquare));
-}
-
-Move Move::reverse(int pSide){
-    std::cout << "pSide is: " << pSide << std::endl;
-    if(pSide == 1){
-        std::cout << "reverseing\n";
-        return this->reverse();
-    }
-    std::cout << "not reversing\n";
-    return *this;
-}
-
-void printMoves(const std::vector<Move>& moves){
-    for(long unsigned i=0; i<moves.size(); i++){
-        std::cout << (i+1) << ". "
-                  << i2s[moves[i].fromSquare] << "-"
-                  << i2s[moves[i].toSquare] << " c: "
-                  << i2s[moves[i].captureSquare] << " ";
-        if (moves[i].type == mType::silent)
-            std::cout << "silent\n";
-        else if(moves[i].type == mType::promotion)
-            std::cout << "prootion\n";
-        else
-            std::cout << '\n';
-    }
-}
-
-void printBits(uint64_t n){
-    uint64_t mask = 0b1000000000000000000000000000000000000000000000000000000000000000;
-    for(uint64_t i = 0; i<64; i++){
-        if((mask & n) != 0)
-            std::cout << "1 ";
-        else
-            std::cout << "0 ";
-        if((i+1)%8 == 0)
-            std::cout << '\n';
-        mask >>= 1;
-    }
-    std::cout << '\n';
+    return Move(type ,::reverse(fromSquare) ,::reverse(captureSquare) ,::reverse(toSquare));
 }
 
 Pos::Pos(){
@@ -184,12 +142,8 @@ Pos::Pos(){
     black = 0b0000000000000000000000000000000000000000101010100101010110101010;
     whiteKing = 0b0;
     blackKing = 0b0;
-    side = Side::black;
+    side = -1; /*black*/
     capture = legal_mask;
-    b_n = 12;
-    w_n = 12;
-    bK_n = 0;
-    wK_n = 0;
     fifty = 0;
 }
 
@@ -235,7 +189,7 @@ std::vector<Move> Pos::genMoves(){
     uint64_t b  = black;
     uint64_t bk = blackKing;
 
-    if(side == Side::white){
+    if(side == 1 /*white*/){
         w  = reverse(black);
         b  = reverse(white);
         bk = reverse(whiteKing);
@@ -337,34 +291,26 @@ std::vector<Move> Pos::genMoves(){
 }
 
 void Pos::switch_side(){
-    side = (side == Side::white) ? Side::black : Side::white;
+    side *= -1;
+    /* side = (side == Side::white) ? Side::black : Side::white; */
 }
 
 void Pos::flip_board(){
-    if(side == Side::white){
+    if(side == 1 /*white*/){
         uint64_t b = black;
         uint64_t w = white;
         uint64_t bk = blackKing;
         uint64_t wk = whiteKing;
         uint64_t cc = capture;
-        uint8_t b_ = b_n;
-        uint8_t w_ = w_n;
-        uint8_t bK_ = bK_n;
-        uint8_t wK_ = wK_n;
         black     = reverse(w);
         white     = reverse(b);
         blackKing = reverse(wk);
         whiteKing = reverse(bk);
         capture   = reverse(cc);
-        b_n = w_;
-        w_n = b_;
-        bK_n = wK_;
-        wK_n = bK_;
     }
 }
 
 void Pos::playMove(Move m){
-
     flip_board();
 
     if(m.type == mType::silent){
@@ -384,10 +330,6 @@ void Pos::playMove(Move m){
     }
     else if(m.type == mType::capture){
         fifty = 0;
-        if((white & m.captureSquare) > 0){
-            --w_n;
-            if((whiteKing & m.captureSquare) >0) --wK_n;
-        }
 
         black     |=  m.toSquare;
         black     &= ~m.fromSquare;
@@ -427,11 +369,6 @@ void Pos::playMove(Move m){
     }
     else if(m.type == mType::promotion){
         fifty = 0;
-        if((white & m.captureSquare) > 0){
-            --w_n;
-            if((whiteKing & m.captureSquare) >0) --wK_n;
-        }
-        ++bK_n;
 
         blackKing |=  m.toSquare;
         black     |=  m.toSquare;
@@ -443,48 +380,12 @@ void Pos::playMove(Move m){
         switch_side();
     }
     else{
-        std::cout << "you discovered new type of a move, you fucking piece of shit\n";
-    }
-
-}
-
-void Pos::playString(const std::string ft){
-    std::string fS = {ft[0],ft[1]};
-    std::string tS = {ft[2],ft[3]};
-    if(side == Side::white){
-        fS = i2s[reverse(s2i[fS])];
-        tS = i2s[reverse(s2i[tS])];
-    }
-
-    std::vector<Move> moves = this->genMoves();
-    for(Move m: moves){
-        if((s2i[fS] == m.fromSquare) && (s2i[tS] == m.toSquare)){
-            this->playMove(m);
-            return;
-        }
+        std::cout << "you discovered new type of a move\n";
     }
 }
 
-Side Pos::getSide(){
-    return side;
-}
-
-std::vector<uint8_t> Pos::serialize(){
-    std::vector<uint8_t> ser;
-    for(auto a: squares){
-        ser.push_back(((black & a) > 0) ? 1 : 0);
-    }
-    for(auto a: squares){
-        ser.push_back(((blackKing & a) > 0) ? 1 : 0);
-    }
-    for(auto a: squares){
-        ser.push_back(((white & a) > 0) ? 1 : 0);
-    }
-    for(auto a: squares){
-        ser.push_back(((whiteKing & a) > 0) ? 1 : 0);
-    }
-    return ser;
-}
+/* Side Pos::getSide(){ return side; } */
+/* uint8_t Pos::getFifty(){ return fifty; } */
 
 torch::Tensor Pos::getTensor(){
     torch::Tensor t = torch::zeros({4,8,4});
@@ -503,38 +404,12 @@ torch::Tensor Pos::getTensor(){
     return t;
 }
 
-float Pos::one_v_one(){
-    if(side == Side::white){
-        if((whiteKing & b_mak) > 0){
-            if((blackKing & b_mak) > 0) return -this->proximity();
-            else                        return  this->proximity();
-        }
-        else{
-            if((blackKing & b_mak) > 0) return  this->proximity();
-            else                        return -this->proximity();
-        }
-    }
-    else{
-        if((blackKing & b_mak) > 0){
-            if((whiteKing & b_mak) > 0) return  this->proximity();
-            else                        return -this->proximity();
-        }
-        else{ 
-            if((whiteKing & b_mak) > 0) return -this->proximity();
-            else                        return  this->proximity();
-        }
-    }
+bool Pos::operator==(const Pos & p) const{
+    return  (p.black == black) &&
+            (p.white == white) &&
+            (p.blackKing == blackKing) &&
+            (p.whiteKing == whiteKing) &&
+            (p.side == side);
 }
 
-bool Pos::is_one_v_one(){
-    return (b_n == 1) && (bK_n == 1) && (w_n == 1) && (wK_n == 1);
-}
 
-float Pos::proximity(){
-    return 0.5 + 0.5/std::max(abs(i2s[blackKing][0] - i2s[whiteKing][0]), 
-                              abs(i2s[blackKing][1] - i2s[whiteKing][1]));
-}
-
-uint8_t Pos::getFifty(){
-    return fifty;
-}

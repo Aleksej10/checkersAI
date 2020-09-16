@@ -55,5 +55,4 @@ public:
     Net get_net();
 };
 
-
 #endif

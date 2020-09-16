@@ -1,12 +1,12 @@
 #include "node.hpp"
 
-Node::~Node(){
+Node::~Node(){ // deletes nodes bellow it
     for (auto s : sons_)
         delete s;
     delete father_;
 }
 
-void Node::delete_tree(Node *& leaf){
+void Node::delete_tree(Node *& leaf){ // starting from any node, finds root and deletes the tree
     Node * tmp = leaf;
     while(tmp->get_father() != nullptr)
         tmp = tmp->get_father();
@@ -16,7 +16,6 @@ void Node::delete_tree(Node *& leaf){
 Node::Node(){
     father_ = nullptr;
     pos_ = Pos();
-    side_ = pos_.getSide(); 
     moves_ = pos_.genMoves();
     move_n_ = moves_.size();
     estimate_ = Node::net_->forward(pos_.getTensor().unsqueeze(0))[0].item<float>();
@@ -24,16 +23,11 @@ Node::Node(){
     leaf_ = true;
     truly_ = false;
     visited_ = false;
-    if(pos_.is_one_v_one()){
-        score_ = pos_.one_v_one();
-        truly_ = true;
-    }
 }
 
 Node::Node(Node * father, Pos pos, Move m){
     father_ = father;
     pos_ = pos; pos_.playMove(m);
-    side_ = pos_.getSide();
     moves_ = pos_.genMoves();
     move_n_ = moves_.size();
     estimate_ = Node::net_->forward(pos_.getTensor().unsqueeze(0))[0].item<float>();
@@ -41,16 +35,12 @@ Node::Node(Node * father, Pos pos, Move m){
     leaf_ = true;
     truly_ = false;
     visited_ = false;
-    if(pos_.is_one_v_one()){
-        score_ = pos_.one_v_one();
-        truly_ = true;
-    }
 }
 
 // Visuals
 void Node::show(){
     pos_.prettyPrint();
-    std::cout << "\nSide to move: " << side_ << "\n";
+    std::cout << "\nSide to move: " << pos_.side << "\n";
     std::cout << "Initial estimate: " << estimate_ << "\n";
     std::cout << "leaf?: " << leaf_ << "\n";
     if(truly_) std::cout << "Calculated ";
@@ -79,7 +69,7 @@ void Node::showTree(){
 }
 
 // Getters
-int Node::get_side(){ return side_; }
+int Node::get_side(){ return pos_.side; }
 
 float Node::get_score(){ return score_; }
 
@@ -103,11 +93,11 @@ unsigned Node::get_move_n(){ return move_n_; }
 
 // Tree search
 bool Node::over(){
-    return ((move_n_ == 0) || (pos_.getFifty() > 25)) ? true : false;
+    return ((move_n_ == 0) || (pos_.fifty > 25)) ? true : false;
 }
 
 float Node::result(){
-    return (pos_.getFifty() > 25) ? 0 : -side_;
+    return (pos_.fifty > 25) ? 0 : -pos_.side;
 }
 
 uint8_t Node::argmax(){ return arg_max_; }
@@ -126,11 +116,6 @@ void Node::backprop(bool leaf, float son_score){
 
     if(this->over()){
         score_ = this->result();
-        truly_ = true;
-    }
-    else if(pos_.is_one_v_one()){
-        this->trutify();
-        score_ = pos_.one_v_one();
         truly_ = true;
     }
     else{
@@ -152,13 +137,13 @@ void Node::trutify(){
     for(uint8_t i=1; i<move_n_; i++){
         float sc = sons_[i]->get_score();
         bool son_t = sons_[i]->get_truly();
-        if(son_t && (side_ * sc > 0)){
+        if(son_t && (pos_.side * sc > 0)){
             truly_ = true;
             score_ = sc;
             arg_max_ = i;
             return;
         }
-        if((side_ * sc) > (side_ * max)){
+        if((pos_.side * sc) > (pos_.side * max)){
             max = sc;
             maxi = i;
             max_t = son_t;
@@ -190,41 +175,6 @@ void Node::monte(unsigned n){
 }
 
 // Interfaces
-void Node::self_play(Node *& n, unsigned i){
-    while(!n->over()){
-        n->monte(i);
-        n = n->get_son(n->argmax());
-    }
-}
-
-
-    
-void Node::playMove(Node *& n, std::string m){
-    n->expand();
-
-    std::string fS = {m[0],m[1]};
-    std::string tS = {m[2],m[3]};
-
-    if(n->get_side() == 1){
-        fS = i2s[reverse(s2i[fS])];
-        tS = i2s[reverse(s2i[tS])];
-    }
-    std::vector<Move> mvs = *(n->get_moves());
-
-    int index = -1;
-    for(unsigned p=0; p<mvs.size(); p++){
-        if((s2i[fS] == mvs[p].fromSquare) && (s2i[tS] == mvs[p].toSquare)){
-            index = p;
-            break;
-        }
-    }
-    if(index == -1){
-        std::cout << "move " << m << " not found\n";
-        return;
-    }
-    n = n->get_son(index);
-}
-
 void Node::playMove(Node *& n, Move m){
     n->expand();
 
@@ -243,21 +193,6 @@ void Node::playMove(Node *& n, Move m){
     }
     n = n->get_son(index);
 }
-    
-/* std::string Node::pick_n_play(Node *& n, unsigned lvl){ */
-/*     n->monte(lvl); */
-/*     uint8_t index = n->argmax(); */
-/*     std::vector<Move> mvs = *(n->get_moves()); */
-/*     Move m = mvs[index]; */
-/*     std::string fS = i2s[m.fromSquare]; */
-/*     std::string tS = i2s[m.toSquare]; */
-/*     if(n->get_side() == 1){ */
-/*         fS = i2s[reverse(s2i[fS])]; */
-/*         tS = i2s[reverse(s2i[tS])]; */
-/*     } */
-/*     n = n->get_son(index); */
-/*     return fS + tS; */
-/* } */
 
 Move Node::pick_n_play(Node *& n, unsigned lvl){
     n->monte(lvl);
@@ -267,26 +202,12 @@ Move Node::pick_n_play(Node *& n, unsigned lvl){
     return mvs[index];
 }
 
-void Node::human_play(Node *& n, unsigned i, int s){
-    while(!n->over()){
-        if(n->get_side() == s){
-            n->monte();
-            n->show();
-            if(n->get_move_n() == 1){
-                n = n->get_son(0);
-                continue;
-            }
-            std::string m;
-            std::cin >> m;
 
-            Node::playMove(n, m);
-        }
-        else{
-            auto fut = std::async(std::launch::async, [n, i]{return n->monte(i);});
-            fut.get();
-            n->show();
-            n = n->get_son(n->argmax());
-        }
+void Node::self_play(Node *& n, unsigned i){
+    while(!n->over()){
+        n->monte(i);
+        /* n->show(); */
+        n = n->get_son(n->argmax());
     }
 }
 
@@ -294,19 +215,19 @@ void Node::self_vs_random(Node *& n, unsigned i, int s){
     while(!n->over()){
         if(n->get_side() == s){
             n->monte();
-            n->show();
+            /* n->show(); */
             n = n->get_son(rand() % n->get_move_n());
         }
         else{
             n->monte(i);
-            n->show();
+            /* n->show(); */
             n = n->get_son(n->argmax());
         }
     }
 }
 
 // Model
-/* std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node* n){ */ // ---top to bottom
+/* std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node* n){ */ // ---top to bottom TODO: integrate with bottom-up
 /*     std::queue<Node*> q; q.push(n); */
 /*     std::vector<torch::Tensor> xs; */
 /*     std::vector<torch::Tensor> ys; */
@@ -342,12 +263,9 @@ std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node *& n){
     return std::make_pair(torch::stack(xs), torch::stack(ys));
 }
 
-void Node::install_net(Net n){
-    Node::net_ = n;
-}
+void Node::install_net(Net n){ Node::net_ = n; }
 
-
-float Node::play_n_train(Model* m, unsigned diff){
+float Node::play_n_train(Model * m, unsigned diff){
     Node* n = new Node();
     Node::self_play(n, diff);
     std::pair<torch::Tensor, torch::Tensor> p = Node::get_training_set(n);

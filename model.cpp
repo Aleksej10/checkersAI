@@ -33,7 +33,6 @@ void Model::save_clean(){
     std::cout << "Clean model saved\n";
 }
 
-
 float Model::train(torch::Tensor ins, torch::Tensor outs){
     torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
     model_->to(device);
@@ -49,8 +48,4 @@ float Model::train(torch::Tensor ins, torch::Tensor outs){
     return ls;
 }
 
-
-
-Net Model::get_net(){
-    return model_;
-}
+Net Model::get_net(){ return model_; }
