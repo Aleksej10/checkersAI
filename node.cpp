@@ -81,9 +81,9 @@ bool Node::get_leaf(){ return leaf_; }
 
 bool Node::get_visited(){ return visited_; }
 
-Node* Node::get_father(){ return father_; }
+Node * Node::get_father(){ return father_; }
 
-Node* Node::get_son(unsigned i){ return sons_[i]; }
+Node * Node::get_son(unsigned i){ return sons_[i]; }
 
 Pos Node::get_pos(){ return pos_; }
 
@@ -92,12 +92,25 @@ std::vector<Move>* Node::get_moves(){ return &moves_; }
 unsigned Node::get_move_n(){ return move_n_; }
 
 // Tree search
+bool Node::treefold(){
+    uint8_t k = 1;
+    Node * tmp = this;
+    while(tmp->get_father() != nullptr){
+        if(tmp->get_pos() == pos_){
+            k += 1;
+            if(k == 3) return true;
+        }
+        tmp = tmp->get_father();
+    }
+    return false;
+}
+
 bool Node::over(){
-    return ((move_n_ == 0) || (pos_.fifty > 25)) ? true : false;
+    return ((move_n_ == 0) || (pos_.fifty > 25) || this->treefold()) ? true : false;
 }
 
 float Node::result(){
-    return (pos_.fifty > 25) ? 0 : -pos_.side;
+    return ((pos_.fifty > 25) || this->treefold()) ? 0 : -pos_.side;
 }
 
 uint8_t Node::argmax(){ return arg_max_; }
@@ -160,7 +173,7 @@ int Node::monte(){ // return -1 = done
         this->backprop(false, 0 /*token*/);
         return -1;
     }
-    Node* tmp = this;
+    Node * tmp = this;
     while(!tmp->get_leaf() && !tmp->over() && !tmp->get_truly()){
         tmp = tmp->get_son(tmp->argmax());
     }
@@ -227,15 +240,15 @@ void Node::self_vs_random(Node *& n, unsigned i, int s){
 }
 
 // Model
-/* std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node* n){ */ // ---top to bottom TODO: integrate with bottom-up
-/*     std::queue<Node*> q; q.push(n); */
+/* std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node * n){ */ // ---top to bottom TODO: integrate with bottom-up
+/*     std::queue<Node *> q; q.push(n); */
 /*     std::vector<torch::Tensor> xs; */
 /*     std::vector<torch::Tensor> ys; */
 
 /*     while(!q.empty()){ */
 /*         unsigned k = q.front()->get_move_n(); */
 /*         for(unsigned i=0; i<k; i++){ */
-/*             Node* tmp = q.front()->get_son(i); */
+/*             Node * tmp = q.front()->get_son(i); */
 /*             if(tmp->get_visited()) q.push(tmp); */
 /*         } */
 /*         ys.push_back(torch::tensor({q.front()->get_score()})); */
@@ -266,7 +279,7 @@ std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node *& n){
 void Node::install_net(Net n){ Node::net_ = n; }
 
 float Node::play_n_train(Model * m, unsigned diff){
-    Node* n = new Node();
+    Node * n = new Node();
     Node::self_play(n, diff);
     std::pair<torch::Tensor, torch::Tensor> p = Node::get_training_set(n);
     torch::Tensor xs = p.first;

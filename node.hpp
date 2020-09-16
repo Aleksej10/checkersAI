@@ -42,13 +42,14 @@ public:
     bool  get_truly();
     bool  get_leaf();
     bool  get_visited();
-    Node* get_father();
-    Node* get_son(unsigned);
+    Node * get_father();
+    Node * get_son(unsigned);
     Pos   get_pos();
     std::vector<Move> * get_moves();
     unsigned get_move_n();
 
-    bool  over();
+    bool over();
+    bool treefold();
     float result();
     uint8_t argmax();
     void expand();

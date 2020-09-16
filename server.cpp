@@ -67,9 +67,7 @@ private:
 public:
     Node* node_;
     ~Game(){ 
-        std::cout << "deconstructing game " << id_ << std::endl;
         delete node_;
-        std::cout << "game " << id_ << " deconstructed" << std::endl;
     }
 
     Game(std::string id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
@@ -106,7 +104,6 @@ public:
     ~Server(){
         for(auto [_, g]: games_)
             delete g;
-        std::cout << "server deconstructed" << std::endl;
     }
 
     Server(){
@@ -157,8 +154,6 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
             std::vector<Move> moves = fut.get();
         auto t1 = std::chrono::high_resolution_clock::now();
         auto t = millis - std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
-
-        server.games_[gameID]->show();
 
         if(moves.size() == 1){
             json ret = {"move", gameID, userID, move_to_json(moves[0]), t};
