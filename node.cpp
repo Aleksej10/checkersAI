@@ -277,13 +277,3 @@ std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node *& n){
 }
 
 void Node::install_net(Net n){ Node::net_ = n; }
-
-float Node::play_n_train(Model * m, unsigned diff){
-    Node * n = new Node();
-    Node::self_play(n, diff);
-    std::pair<torch::Tensor, torch::Tensor> p = Node::get_training_set(n);
-    torch::Tensor xs = p.first;
-    torch::Tensor ys = p.second;
-    delete n;
-    return m->train(xs, ys);
-}

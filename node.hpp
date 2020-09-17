@@ -63,7 +63,6 @@ public:
 
     static void self_play(Node *&, unsigned);
     static void self_vs_random(Node *&, unsigned, int);
-    static float play_n_train(Model*, unsigned);
 
     static std::pair<torch::Tensor, torch::Tensor> get_training_set(Node *&);
     static void install_net(Net);

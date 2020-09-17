@@ -408,8 +408,7 @@ bool Pos::operator==(const Pos & p) const{
     return  (p.black == black) &&
             (p.white == white) &&
             (p.blackKing == blackKing) &&
-            (p.whiteKing == whiteKing) &&
-            (p.side == side);
+            (p.whiteKing == whiteKing);
 }
 
 
