@@ -7,4 +7,5 @@ trained_model/
 /test_clean.cpp
 /train.cpp
 /train_vs_random.cpp
-
+test/
+test.cpp

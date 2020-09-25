@@ -70,22 +70,29 @@ public:
         delete node_;
     }
 
-    Game(std::string id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
+    Game(const std::string & id, int s, unsigned lvl): id_(id), playerSide_(s), lvl_(lvl), node_(new Node()){}
     int get_pSide(){ return playerSide_; }
 
     std::vector<Move> playMove(Move m){
         if(node_->get_side() != playerSide_){//TODO: premove? currently used to play first move for AI
+            std::cout << "playing first move in game " << id_ << '\n';
             return std::vector<Move> { Node::pick_n_play(node_, lvl_) };
         }
         else{
             Node::playMove(node_, m); 
+            std::cout << "played opponents move in game " << id_ << '\n';
             if(node_->get_side() == playerSide_){
+                std::cout << "still opponents turn in game " << id_ << '\n';
                 return std::vector<Move> {};
             }
             else{
                 std::vector<Move> moves;
                 while((node_->get_side() != playerSide_) && (!node_->over())){
                     moves.push_back(Node::pick_n_play(node_, lvl_));
+                }
+                std::cout << "played " << moves.size() << " move(s) in game " << id_ << '\n';
+                if(node_->over()){
+                    std::cout << "game " << id_ << " ended\n";
                 }
                 return moves;
             }
@@ -112,11 +119,12 @@ public:
         Node::install_net(m->get_net());
     }
 
-    std::vector<Move> addGame(std::string id, int s, unsigned lvl){
+    std::vector<Move> addGame(const std::string & id, int s, unsigned lvl){
+        std::cout << "game " << id << " added\n";
         games_[id] = new Game(id, s, lvl);
         if(s == 1){
-            Move token;
-            return games_[id]->playMove(token);
+            /* Move token; */
+            return games_[id]->playMove(Move());
         }
         else{
             return std::vector<Move> {};
@@ -178,7 +186,7 @@ void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr message)
     }
     else if(msg0 == "end"){ // ['end', gameID, score, rating_shift]
         std::string gameID = msg[1].get<std::string>();
-        std::cout << "end " << gameID << std::endl;
+        std::cout << "game " << gameID << " ended\n";
 
         std::pair<torch::Tensor, torch::Tensor> p = Node::get_training_set(server.games_[gameID]->node_);
         torch::Tensor xs = p.first;

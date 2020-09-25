@@ -1,6 +1,6 @@
 #include "pos.hpp"
 
-uint64_t squares[32] = {
+static const uint64_t squares[32] = {
 0b0000000000000000000000000000000000000000000000000000000000000010,
 0b0000000000000000000000000000000000000000000000000000000000001000,
 0b0000000000000000000000000000000000000000000000000000000000100000,
@@ -34,7 +34,7 @@ uint64_t squares[32] = {
 0b0001000000000000000000000000000000000000000000000000000000000000,
 0b0100000000000000000000000000000000000000000000000000000000000000};
 
-std::map<uint64_t, std::string> i2s = {
+static const std::map<uint64_t, std::string> i2s = {
 {0b0000000000000000000000000000000000000000000000000000000000000000,   ""},
 {0b0101010110101010010101011010101001010101101010100101010110101010, "lg"},
 {0b0000000000000000000000000000000000000000000000000000000000000010, "g1"},
@@ -70,7 +70,7 @@ std::map<uint64_t, std::string> i2s = {
 {0b0001000000000000000000000000000000000000000000000000000000000000, "d8"},
 {0b0100000000000000000000000000000000000000000000000000000000000000, "b8"}};
 
-std::map<std::string, uint64_t> s2i = {
+static const std::map<std::string, uint64_t> s2i = {
 {""  , 0b0000000000000000000000000000000000000000000000000000000000000000},
 {"lg", 0b0101010110101010010101011010101001010101101010100101010110101010},
 {"g1", 0b0000000000000000000000000000000000000000000000000000000000000010},
@@ -117,7 +117,7 @@ static const uint64_t legal_mask =  0b010101011010101001010101101010100101010110
 
 static const uint64_t b_mak      =  0b0000000010101010000000001010101000000000101010100000000010101010;
 
-uint64_t reverse(uint64_t n){
+inline uint64_t reverse(uint64_t n){
     n = ((n >> 1) & 0b0101010101010101010101010101010101010101010101010101010101010101)|
         ((n << 1) & 0b1010101010101010101010101010101010101010101010101010101010101010);
     n = ((n >> 2) & 0b0011001100110011001100110011001100110011001100110011001100110011)|
@@ -137,15 +137,19 @@ Move Move::reverse(){
     return Move(type ,::reverse(fromSquare) ,::reverse(captureSquare) ,::reverse(toSquare));
 }
 
-Pos::Pos(){
-    white = 0b0101010110101010010101010000000000000000000000000000000000000000;
-    black = 0b0000000000000000000000000000000000000000101010100101010110101010;
-    whiteKing = 0b0;
-    blackKing = 0b0;
-    side = -1; /*black*/
-    capture = legal_mask;
-    fifty = 0;
+std::string Move::toString(){
+    return i2s.at(fromSquare) + "-" + i2s.at(toSquare);
 }
+
+Pos::Pos() :
+    black(0b0000000000000000000000000000000000000000101010100101010110101010),
+    white(0b0101010110101010010101010000000000000000000000000000000000000000),
+    blackKing(0b0),
+    whiteKing(0b0),
+    side(-1), /*black*/
+    capture(legal_mask),
+    fifty(0)
+{}
 
 void Pos::prettyPrint(){
     /* system("clear"); */
@@ -181,8 +185,9 @@ void Pos::prettyPrint(){
 
 }
 
-std::vector<Move> Pos::genMoves(){
-    std::vector<Move> moves;
+std::vector<Move> * Pos::genMoves(){
+    std::vector<Move>* moves = new std::vector<Move>();
+    moves->reserve(8);
 
     uint64_t c  = capture;
     uint64_t w  = white;
@@ -196,95 +201,95 @@ std::vector<Move> Pos::genMoves(){
         c  = reverse(capture);
     }
 
-    uint64_t wb = ~(w | b) & legal_mask;
-    uint64_t no_bking = b ^ bk;
-    uint64_t wr7  = (w >> 7) & (wb >> 14) & n_first_2;
-    uint64_t wr9  = (w >> 9) & (wb >> 18) & n_first_2;
-    uint64_t wl7  = (w << 7) & (wb << 14) & r_first_2;
-    uint64_t wl9  = (w << 9) & (wb << 18) & r_first_2;
+    const uint64_t wb = ~(w | b) & legal_mask;
+    const uint64_t no_bking = b ^ bk;
+    const uint64_t wr7  = (w >> 7) & (wb >> 14) & n_first_2;
+    const uint64_t wr9  = (w >> 9) & (wb >> 18) & n_first_2;
+    const uint64_t wl7  = (w << 7) & (wb << 14) & r_first_2;
+    const uint64_t wl9  = (w << 9) & (wb << 18) & r_first_2;
 
-    uint64_t captur_1 = c & no_bking & wr7;
-    uint64_t captur_2 = c & no_bking & wr9;
-    uint64_t king_c1  = c & bk       & wr7;
-    uint64_t king_c2  = c & bk       & wr9;
-    uint64_t king_c3  = c & bk       & wl7;
-    uint64_t king_c4  = c & bk       & wl9;
+    const uint64_t captur_1 = c & no_bking & wr7;
+    const uint64_t captur_2 = c & no_bking & wr9;
+    const uint64_t king_c1  = c & bk       & wr7;
+    const uint64_t king_c2  = c & bk       & wr9;
+    const uint64_t king_c3  = c & bk       & wl7;
+    const uint64_t king_c4  = c & bk       & wl9;
 
-    uint64_t captures = captur_1 | captur_2 | king_c1 | king_c2 | king_c3 | king_c4;
+    const uint64_t captures = captur_1 | captur_2 | king_c1 | king_c2 | king_c3 | king_c4;
 
     if(captures != 0b0){
         if(c != legal_mask){
             if((c & bk) != 0){
                 if(king_c1 != 0)
-                    moves.push_back(Move(mType::capture,   c, c << 7, c << 14));
+                    moves->emplace_back(mType::capture,   c, c << 7, c << 14);
                 if(king_c2 != 0)
-                    moves.push_back(Move(mType::capture,   c, c << 9, c << 18));
+                    moves->emplace_back(mType::capture,   c, c << 9, c << 18);
                 if(king_c3 != 0)
-                    moves.push_back(Move(mType::capture,   c, c >> 7, c >> 14));
+                    moves->emplace_back(mType::capture,   c, c >> 7, c >> 14);
                 if(king_c4 != 0)
-                    moves.push_back(Move(mType::capture,   c, c >> 9, c >> 18));
+                    moves->emplace_back(mType::capture,   c, c >> 9, c >> 18);
             }
             else{
                 if((captur_1 & n_first_3) != 0)
-                    moves.push_back(Move(mType::capture,   c, c << 7, c << 14));
+                    moves->emplace_back(mType::capture,   c, c << 7, c << 14);
                 if((captur_2 & n_first_3) != 0)
-                    moves.push_back(Move(mType::capture,   c, c << 9, c << 18));
+                    moves->emplace_back(mType::capture,   c, c << 9, c << 18);
                 if((captur_1 &   first_3) != 0)
-                    moves.push_back(Move(mType::promotion, c, c << 7, c << 14));
+                    moves->emplace_back(mType::promotion, c, c << 7, c << 14);
                 if((captur_2 &   first_3) != 0)
-                    moves.push_back(Move(mType::promotion, c, c << 9, c << 18));
+                    moves->emplace_back(mType::promotion, c, c << 9, c << 18);
             }
             return moves;
         }
         for(uint64_t s: squares){
             if((captures & s) == 0) continue;
             if((captur_1 & n_first_3 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s << 7, s << 14));
+                moves->emplace_back(mType::capture,   s, s << 7, s << 14);
             if((captur_2 & n_first_3 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s << 9, s << 18));
+                moves->emplace_back(mType::capture,   s, s << 9, s << 18);
             if((captur_1 &   first_3 & s) != 0)
-                moves.push_back(Move(mType::promotion, s, s << 7, s << 14));
+                moves->emplace_back(mType::promotion, s, s << 7, s << 14);
             if((captur_2 &   first_3 & s) != 0)
-                moves.push_back(Move(mType::promotion, s, s << 9, s << 18));
+                moves->emplace_back(mType::promotion, s, s << 9, s << 18);
             if((king_c1 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s << 7, s << 14));
+                moves->emplace_back(mType::capture,   s, s << 7, s << 14);
             if((king_c2 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s << 9, s << 18));
+                moves->emplace_back(mType::capture,   s, s << 9, s << 18);
             if((king_c3 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s >> 7, s >> 14));
+                moves->emplace_back(mType::capture,   s, s >> 7, s >> 14);
             if((king_c4 & s) != 0)
-                moves.push_back(Move(mType::capture,   s, s >> 9, s >> 18));
+                moves->emplace_back(mType::capture,   s, s >> 9, s >> 18);
         }
         return moves;
     }
     else{
-        uint64_t silent_1 = c & no_bking & (wb >> 7) &   first_1;
-        uint64_t silent_2 = c & no_bking & (wb >> 9) &   first_1;
-        uint64_t king_s1  = c & bk       & (wb >> 7) &   first_1;
-        uint64_t king_s2  = c & bk       & (wb >> 9) &   first_1;
-        uint64_t king_s3  = c & bk       & (wb << 7) & r_first_1;
-        uint64_t king_s4  = c & bk       & (wb << 9) & r_first_1;
+        const uint64_t silent_1 = c & no_bking & (wb >> 7) &   first_1;
+        const uint64_t silent_2 = c & no_bking & (wb >> 9) &   first_1;
+        const uint64_t king_s1  = c & bk       & (wb >> 7) &   first_1;
+        const uint64_t king_s2  = c & bk       & (wb >> 9) &   first_1;
+        const uint64_t king_s3  = c & bk       & (wb << 7) & r_first_1;
+        const uint64_t king_s4  = c & bk       & (wb << 9) & r_first_1;
 
-        uint64_t silents = silent_1 | silent_2 | king_s1 | king_s2 | king_s3 | king_s4;
+        const uint64_t silents = silent_1 | silent_2 | king_s1 | king_s2 | king_s3 | king_s4;
 
         for(uint64_t s: squares){
             if((silents & s) == 0) continue;
             if((silent_1 & n_first_2 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s << 7));
+                moves->emplace_back(mType::silent,    s, s << 7);
             if((silent_2 & n_first_2 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s << 9));
+                moves->emplace_back(mType::silent,    s, s << 9);
             if((silent_1 &   first_2 & s) != 0)
-                moves.push_back(Move(mType::promotion, s, s << 7));
+                moves->emplace_back(mType::promotion, s, s << 7);
             if((silent_2 &   first_2 & s) != 0)
-                moves.push_back(Move(mType::promotion, s, s << 9));
+                moves->emplace_back(mType::promotion, s, s << 9);
             if((king_s1 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s << 7));
+                moves->emplace_back(mType::silent,    s, s << 7);
             if((king_s2 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s << 9));
+                moves->emplace_back(mType::silent,    s, s << 9);
             if((king_s3 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s >> 7));
+                moves->emplace_back(mType::silent,    s, s >> 7);
             if((king_s4 & s) != 0)
-                moves.push_back(Move(mType::silent,    s, s >> 9));
+                moves->emplace_back(mType::silent,    s, s >> 9);
         }
         return moves;
     }
@@ -292,21 +297,19 @@ std::vector<Move> Pos::genMoves(){
 
 void Pos::switch_side(){
     side *= -1;
-    /* side = (side == Side::white) ? Side::black : Side::white; */
 }
 
 void Pos::flip_board(){
     if(side == 1 /*white*/){
-        uint64_t b = black;
-        uint64_t w = white;
-        uint64_t bk = blackKing;
-        uint64_t wk = whiteKing;
-        uint64_t cc = capture;
+        const uint64_t b = black;
+        const uint64_t w = white;
+        const uint64_t bk = blackKing;
+        const uint64_t wk = whiteKing;
         black     = reverse(w);
         white     = reverse(b);
         blackKing = reverse(wk);
         whiteKing = reverse(bk);
-        capture   = reverse(cc);
+        capture   = reverse(capture);
     }
 }
 
@@ -330,19 +333,18 @@ void Pos::playMove(Move m){
     }
     else if(m.type == mType::capture){
         fifty = 0;
-
         black     |=  m.toSquare;
         black     &= ~m.fromSquare;
         white     &= ~m.captureSquare;
         whiteKing &= ~m.captureSquare;
-        uint64_t wb = ~(white | black) & legal_mask;
+        const uint64_t wb = ~(white | black) & legal_mask;
         if((blackKing & m.fromSquare) != 0b0){
             blackKing |=  m.toSquare;
             blackKing &= ~m.fromSquare;
-            uint64_t king_c1  = m.toSquare & blackKing & (white >> 7) & (wb >> 14) & n_first_2;
-            uint64_t king_c2  = m.toSquare & blackKing & (white >> 9) & (wb >> 18) & n_first_2;
-            uint64_t king_c3  = m.toSquare & blackKing & (white << 7) & (wb << 14) & r_first_2;
-            uint64_t king_c4  = m.toSquare & blackKing & (white << 9) & (wb << 18) & r_first_2;
+            const uint64_t king_c1  = m.toSquare & blackKing & (white >> 7) & (wb >> 14) & n_first_2;
+            const uint64_t king_c2  = m.toSquare & blackKing & (white >> 9) & (wb >> 18) & n_first_2;
+            const uint64_t king_c3  = m.toSquare & blackKing & (white << 7) & (wb << 14) & r_first_2;
+            const uint64_t king_c4  = m.toSquare & blackKing & (white << 9) & (wb << 18) & r_first_2;
             if((king_c1 | king_c2 | king_c3 | king_c4) != 0b0){
                 capture = m.toSquare;
                 flip_board();
@@ -354,8 +356,8 @@ void Pos::playMove(Move m){
             }
         }
         else{
-            uint64_t cap_1 = m.toSquare & (black ^ blackKing) & (white >> 7) & (wb >> 14) & n_first_2;
-            uint64_t cap_2 = m.toSquare & (black ^ blackKing) & (white >> 9) & (wb >> 18) & n_first_2;
+            const uint64_t cap_1 = m.toSquare & (black ^ blackKing) & (white >> 7) & (wb >> 14) & n_first_2;
+            const uint64_t cap_2 = m.toSquare & (black ^ blackKing) & (white >> 9) & (wb >> 18) & n_first_2;
             if((cap_1 | cap_2) != 0b0){
                 capture = m.toSquare;
                 flip_board();
@@ -383,9 +385,6 @@ void Pos::playMove(Move m){
         std::cout << "you discovered new type of a move\n";
     }
 }
-
-/* Side Pos::getSide(){ return side; } */
-/* uint8_t Pos::getFifty(){ return fifty; } */
 
 torch::Tensor Pos::getTensor(){
     torch::Tensor t = torch::zeros({4,8,4});

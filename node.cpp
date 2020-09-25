@@ -1,7 +1,7 @@
 #include "node.hpp"
 
 Node::~Node(){ // deletes nodes bellow it
-    for (auto s : sons_)
+    for(auto s : sons_)
         delete s;
     delete father_;
 }
@@ -13,28 +13,31 @@ void Node::delete_tree(Node *& leaf){ // starting from any node, finds root and 
     delete tmp;
 }
 
-Node::Node(){
-    father_ = nullptr;
-    pos_ = Pos();
-    moves_ = pos_.genMoves();
-    move_n_ = moves_.size();
+Node::Node() :
+    father_(nullptr),
+    pos_(),
+    moves_(pos_.genMoves()),
+    move_n_(moves_->size()),
+    leaf_(true),
+    truly_(false),
+    visited_(false)
+{
     estimate_ = Node::net_->forward(pos_.getTensor().unsqueeze(0))[0].item<float>();
     score_ = estimate_;
-    leaf_ = true;
-    truly_ = false;
-    visited_ = false;
 }
 
-Node::Node(Node * father, Pos pos, Move m){
-    father_ = father;
-    pos_ = pos; pos_.playMove(m);
+Node::Node(Node * father, Pos pos, Move m) :
+    father_(father),
+    pos_(pos),
+    leaf_(true),
+    truly_(false),
+    visited_(false)
+{
+    pos_.playMove(m);
     moves_ = pos_.genMoves();
-    move_n_ = moves_.size();
+    move_n_ = moves_->size();
     estimate_ = Node::net_->forward(pos_.getTensor().unsqueeze(0))[0].item<float>();
     score_ = estimate_;
-    leaf_ = true;
-    truly_ = false;
-    visited_ = false;
 }
 
 // Visuals
@@ -54,7 +57,7 @@ void Node::show(){
         }
         std::cout << '\n';
     }
-    for(auto m: moves_)
+    for(auto m: *moves_)
         std::cout << m.toString() << " ";
     std::cout << '\n';
 }
@@ -69,7 +72,7 @@ void Node::showTree(){
 }
 
 // Getters
-int Node::get_side(){ return pos_.side; }
+int8_t Node::get_side(){ return pos_.side; }
 
 float Node::get_score(){ return score_; }
 
@@ -83,13 +86,13 @@ bool Node::get_visited(){ return visited_; }
 
 Node * Node::get_father(){ return father_; }
 
-Node * Node::get_son(unsigned i){ return sons_[i]; }
+Node * Node::get_son(uint8_t i){ return sons_[i]; }
 
 Pos Node::get_pos(){ return pos_; }
 
-std::vector<Move>* Node::get_moves(){ return &moves_; }
+std::vector<Move>* Node::get_moves(){ return moves_; }
 
-unsigned Node::get_move_n(){ return move_n_; }
+uint8_t Node::get_move_n(){ return move_n_; }
 
 // Tree search
 bool Node::treefold(){
@@ -118,7 +121,8 @@ uint8_t Node::argmax(){ return arg_max_; }
 void Node::expand(){
     if(!leaf_) return;
     if(this->over()) return;
-    for (auto m : moves_)
+    sons_.reserve(move_n_);
+    for (auto m : *moves_)
         sons_.push_back(new Node(this, pos_, m));
     leaf_ = false;
 }
@@ -167,7 +171,7 @@ void Node::trutify(){
     arg_max_ = maxi;
 }
 
-int Node::monte(){ // return -1 = done
+int8_t Node::monte(){ // return -1 = done
     if(truly_) return -1;
     if(move_n_ == 1){
         this->backprop(false, 0 /*token*/);
@@ -191,11 +195,12 @@ void Node::monte(unsigned n){
 void Node::playMove(Node *& n, Move m){
     n->expand();
 
-    std::vector<Move> mvs = *(n->get_moves());
+    std::vector<Move> * mvs = n->get_moves();
+    uint8_t len = n->get_move_n();
 
-    int index = -1;
-    for(unsigned p=0; p<mvs.size(); p++){
-        if(m == mvs[p]){
+    int8_t index = -1;
+    for(uint8_t p=0; p<len; p++){
+        if(m == mvs->at(p)){
             index = p;
             break;
         }
@@ -210,16 +215,15 @@ void Node::playMove(Node *& n, Move m){
 Move Node::pick_n_play(Node *& n, unsigned lvl){
     n->monte(lvl);
     uint8_t index = n->argmax();
-    std::vector<Move> mvs = *(n->get_moves());
+    std::vector<Move> *mvs = n->get_moves();
     n = n->get_son(index);
-    return mvs[index];
+    return mvs->at(index);
 }
 
 
 void Node::self_play(Node *& n, unsigned i){
     while(!n->over()){
         n->monte(i);
-        /* n->show(); */
         n = n->get_son(n->argmax());
     }
 }
@@ -228,12 +232,10 @@ void Node::self_vs_random(Node *& n, unsigned i, int s){
     while(!n->over()){
         if(n->get_side() == s){
             n->monte();
-            /* n->show(); */
             n = n->get_son(rand() % n->get_move_n());
         }
         else{
             n->monte(i);
-            /* n->show(); */
             n = n->get_son(n->argmax());
         }
     }
@@ -267,8 +269,8 @@ std::pair<torch::Tensor, torch::Tensor> Node::get_training_set(Node *& n){
         float update;
         if(n->get_truly()){ update = n->get_score(); }
         else{               update = (result + n->get_score())/2.0; }
-        ys.push_back(torch::tensor({update}));
-        xs.push_back(n->get_pos().getTensor());
+        ys.emplace_back(torch::tensor({update}));
+        xs.emplace_back(n->get_pos().getTensor());
         n = n->get_father();
         k++;
     }
